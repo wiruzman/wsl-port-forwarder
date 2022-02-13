@@ -24,7 +24,13 @@ namespace WslPortForwarder
             process.WaitForExit(5000);
 
             var ip = process.StandardOutput.ReadToEnd().Trim('\n');
-            return IPAddress.Parse(ip);
+            if (!IPAddress.TryParse(ip, out var ipAddress))
+            {
+                var processError = process.StandardError.ReadToEnd();
+                throw new InvalidOperationException($"Ip is not valid: {ip}\nProcess error:\n{processError}");
+            }
+
+            return ipAddress;
         }
 
         public IEnumerable<int> GetDockerPorts()

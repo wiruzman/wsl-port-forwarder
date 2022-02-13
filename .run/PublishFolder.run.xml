@@ -1,0 +1,6 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PublishFolder" type="DotNetFolderPublish" factoryName="Publish to folder">
+    <riderPublish configuration="Release" delete_existing_files="true" platform="Any CPU" produce_single_file="true" ready_to_run="true" runtime="win-x64" self_contained="true" target_folder="$PROJECT_DIR$/WslPortForwarder/bin/Release/net5.0/publish" target_framework="net5.0" uuid_high="-1853933878238492033" uuid_low="-6997064978429723062" />
+    <method v="2" />
+  </configuration>
+</component>

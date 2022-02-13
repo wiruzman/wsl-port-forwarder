@@ -14,7 +14,7 @@ namespace WslPortForwarder
             Host.CreateDefaultBuilder(args)
                 .UseWindowsService(options =>
                 {
-                    options.ServiceName = ".NET Joke Service";
+                    options.ServiceName = "WSL Port Forwarder";
                 })
                 .ConfigureServices(services =>
                 {

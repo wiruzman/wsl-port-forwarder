@@ -19,7 +19,7 @@ namespace WslPortForwarder
                 .ConfigureServices(services =>
                 {
                     services.AddHostedService<WindowsBackgroundService>();
-                    services.AddSingleton<WslService>();
+                    services.AddSingleton<KubernetesService>();
                     services.AddSingleton<DockerService>();
                 });
     }

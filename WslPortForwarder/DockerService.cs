@@ -11,8 +11,7 @@ namespace WslPortForwarder
 
         public DockerService()
         {
-            _client = new DockerClientConfiguration()
-                .CreateClient();
+            _client = new DockerClientConfiguration().CreateClient();
         }
 
         public async Task<ushort[]> GetPublicPortForContainers()

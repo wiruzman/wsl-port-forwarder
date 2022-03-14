@@ -23,41 +23,48 @@ namespace WslPortForwarder
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var ip = await _kubernetesService.GetNodeIp();
-                var ports = await _dockerService.GetPublicPortForContainers();
-
-                _logger.LogInformation("Ip: {0}, Ports: {1}", ip, string.Join(",", ports));
-
-                foreach (var port in ports)
+                try
                 {
-                    if (IsPortCreated(port))
+                    var ip = await _kubernetesService.GetNodeIp();
+                    var ports = await _dockerService.GetPublicPortForContainers();
+
+                    _logger.LogInformation("Ip: {0}, Ports: {1}", ip, string.Join(",", ports));
+
+                    foreach (var port in ports)
                     {
-                        _logger.LogInformation("Skipping port: {0}", port);
-                        continue;
+                        if (IsPortCreated(port))
+                        {
+                            _logger.LogInformation("Skipping port: {0}", port);
+                            continue;
+                        }
+
+                        _logger.LogInformation("Adding port: {0}", port);
+                        var tcpForwarder = new TcpForwarder();
+                        var srcEndpoint = new IPEndPoint(IPAddress.Any, port);
+                        var dstEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
+                        var thread = new Thread(() => tcpForwarder.Start(srcEndpoint, dstEndpoint))
+                        {
+                            IsBackground = true,
+                            Name = $"WslPort-{port}"
+                        };
+                        _threads.Add(thread);
+                        thread.Start();
                     }
 
-                    _logger.LogInformation("Adding port: {0}", port);
-                    var tcpForwarder = new TcpForwarder();
-                    var srcEndpoint = new IPEndPoint(IPAddress.Any, port);
-                    var dstEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
-                    var thread = new Thread(() => tcpForwarder.Start(srcEndpoint, dstEndpoint))
+                    var unusedPorts = GetRemovedPorts(ports);
+                    foreach (var unusedPort in unusedPorts)
                     {
-                        IsBackground = true,
-                        Name = $"WslPort-{port}"
-                    };
-                    _threads.Add(thread);
-                    thread.Start();
+                        _logger.LogInformation("Removing port: {0}", unusedPort);
+                        var thread = ClosePort(unusedPort);
+                        if (thread is not null)
+                        {
+                            _threads.Remove(thread);
+                        }
+                    }
                 }
-
-                var unusedPorts = GetRemovedPorts(ports);
-                foreach (var unusedPort in unusedPorts)
+                catch (Exception e)
                 {
-                    _logger.LogInformation("Removing port: {0}", unusedPort);
-                    var thread = ClosePort(unusedPort);
-                    if (thread is not null)
-                    {
-                        _threads.Remove(thread);
-                    }
+                    _logger.LogError(e, e.Message);
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);

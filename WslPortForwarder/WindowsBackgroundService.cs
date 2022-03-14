@@ -28,17 +28,17 @@ namespace WslPortForwarder
                     var ip = await _kubernetesService.GetNodeIp();
                     var ports = await _dockerService.GetPublicPortForContainers();
 
-                    _logger.LogInformation("Ip: {0}, Ports: {1}", ip, string.Join(",", ports));
+                    _logger.LogDebug("Ip: {0}, Ports: {1}", ip, string.Join(",", ports));
 
                     foreach (var port in ports)
                     {
                         if (IsPortCreated(port))
                         {
-                            _logger.LogInformation("Skipping port: {0}", port);
+                            _logger.LogDebug("Listening port: {0}", port);
                             continue;
                         }
 
-                        _logger.LogInformation("Adding port: {0}", port);
+                        _logger.LogDebug("Adding port: {0}", port);
                         var tcpForwarder = new TcpForwarder();
                         var srcEndpoint = new IPEndPoint(IPAddress.Any, port);
                         var dstEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
@@ -54,7 +54,7 @@ namespace WslPortForwarder
                     var unusedPorts = GetRemovedPorts(ports);
                     foreach (var unusedPort in unusedPorts)
                     {
-                        _logger.LogInformation("Removing port: {0}", unusedPort);
+                        _logger.LogDebug("Removing port: {0}", unusedPort);
                         var thread = ClosePort(unusedPort);
                         if (thread is not null)
                         {

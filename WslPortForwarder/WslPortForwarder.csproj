@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <UserSecretsId>dotnet-WSLPortForwarder-B03453BF-675E-42AF-BE6C-9D064B924049</UserSecretsId>
     <Nullable>enable</Nullable>
     <OutputType>exe</OutputType>
     <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>

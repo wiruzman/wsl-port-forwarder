@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -14,7 +13,7 @@ namespace WslPortForwarder
         private readonly KubernetesService _kubernetesService;
         private readonly DockerService _dockerService;
         private readonly ILogger<WindowsBackgroundService> _logger;
-        private readonly IList<Thread> _threads = new List<Thread>();
+        private readonly IList<TcpForwarder> _tcpForwarders = new List<TcpForwarder>();
 
         public WindowsBackgroundService(KubernetesService kubernetesService, DockerService dockerService, ILogger<WindowsBackgroundService> logger) =>
             (_kubernetesService, _dockerService, _logger) = (kubernetesService, dockerService, logger);
@@ -39,15 +38,13 @@ namespace WslPortForwarder
                         }
 
                         _logger.LogDebug("Adding port: {0}", port);
-                        var tcpForwarder = new TcpForwarder();
-                        var srcEndpoint = new IPEndPoint(IPAddress.Any, port);
-                        var dstEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
-                        var thread = new Thread(() => tcpForwarder.Start(srcEndpoint, dstEndpoint))
+                        var tcpForwarder = new TcpForwarder(RemovePort, ip, port);
+                        var thread = new Thread(() => tcpForwarder.Start())
                         {
                             IsBackground = true,
                             Name = $"WslPort-{port}"
                         };
-                        _threads.Add(thread);
+                        _tcpForwarders.Add(tcpForwarder);
                         thread.Start();
                     }
 
@@ -55,11 +52,8 @@ namespace WslPortForwarder
                     foreach (var unusedPort in unusedPorts)
                     {
                         _logger.LogDebug("Removing port: {0}", unusedPort);
-                        var thread = ClosePort(unusedPort);
-                        if (thread is not null)
-                        {
-                            _threads.Remove(thread);
-                        }
+                        var tcpForward = _tcpForwarders.FirstOrDefault(tf => tf.Port == unusedPort);
+                        tcpForward?.Stop();
                     }
                 }
                 catch (Exception e)
@@ -73,27 +67,22 @@ namespace WslPortForwarder
 
         private bool IsPortCreated(ushort port)
         {
-            var portName = $"WslPort-{port}";
-            return _threads.Any(t => t.Name == portName);
+            return _tcpForwarders.Any(tf => tf.Port == port);
         }
 
         private ushort[] GetRemovedPorts(ushort[] currentPorts)
         {
-            var openPorts = _threads.Select(t => ushort.Parse(t.Name?.Split("-").Last() ?? "0")).Where(p => p != 0);
+            var openPorts = _tcpForwarders.Select(tf => tf.Port);
             return openPorts.Except(currentPorts).ToArray();
         }
 
-        private Thread? ClosePort(ushort port)
+        private void RemovePort(ushort port)
         {
-            var portName = $"WslPort-{port}";
-            foreach (var thread in _threads)
+            var tcpForwarder = _tcpForwarders.FirstOrDefault(tf => tf.Port == port);
+            if (tcpForwarder is not null)
             {
-                if (thread.Name != portName) continue;
-                thread.Interrupt();
-                return thread;
+                _tcpForwarders.Remove(tcpForwarder);
             }
-
-            return null;
         }
     }
 }

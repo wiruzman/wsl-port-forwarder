@@ -4,48 +4,46 @@ using System.Net.Sockets;
 
 namespace WslPortForwarder
 {
-    public class TcpForwarder
+    public class TcpForwarder : TcpForwarderBase
     {
-        private readonly Socket _mainSocket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        public ushort Port { get; }
+        private readonly Action<ushort> _removePortAction;
+        private readonly IPEndPoint _local;
+        private readonly IPEndPoint _remote;
 
-        public void Start(IPEndPoint local, IPEndPoint remote)
+        public TcpForwarder(Action<ushort> removePortAction, string remoteIp, ushort port)
         {
-            _mainSocket.Bind(local);
-            _mainSocket.Listen(10);
-
-            while (true)
-            {
-                var source = _mainSocket.Accept();
-                var destination = new TcpForwarder();
-                var state = new State(source, destination._mainSocket);
-                destination.Connect(remote, source);
-                source.BeginReceive(state.Buffer, 0, state.Buffer.Length, 0, OnDataReceive, state);
-            }
+            Port = port;
+            _removePortAction = removePortAction;
+            _local = new IPEndPoint(IPAddress.Any, port);
+            _remote = new IPEndPoint(IPAddress.Parse(remoteIp), port);
         }
 
-        private void Connect(EndPoint remoteEndpoint, Socket destination)
+        public void Start()
         {
-            var state = new State(_mainSocket, destination);
-            _mainSocket.Connect(remoteEndpoint);
-            _mainSocket.BeginReceive(state.Buffer, 0, state.Buffer.Length, SocketFlags.None, OnDataReceive, state);
-        }
+            MainSocket.Bind(_local);
+            MainSocket.Listen(10);
 
-        private static void OnDataReceive(IAsyncResult result)
-        {
-            var state = result.AsyncState as State;
             try
             {
-                if (state == null) return;
-                var bytesRead = state.SourceSocket.EndReceive(result);
-                if (bytesRead <= 0) return;
-                state.DestinationSocket.Send(state.Buffer, bytesRead, SocketFlags.None);
-                state.SourceSocket.BeginReceive(state.Buffer, 0, state.Buffer.Length, 0, OnDataReceive, state);
+                while (true)
+                {
+                    var source = MainSocket.Accept();
+                    var destination = new TcpForwarderDestination();
+                    var state = new State(source, destination.MainSocket);
+                    destination.Connect(_remote, source);
+                    source.BeginReceive(state.Buffer, 0, state.Buffer.Length, 0, OnDataReceive, state);
+                }
             }
-            catch
+            catch (SocketException)
             {
-                state?.DestinationSocket.Close();
-                state?.SourceSocket.Close();
+                _removePortAction.Invoke((ushort)_local.Port);
             }
+        }
+
+        public void Stop()
+        {
+            MainSocket.Close();
         }
     }
 }

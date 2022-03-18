@@ -20,6 +20,6 @@ public class Program
             {
                 services.AddHostedService<WindowsBackgroundService>();
                 services.AddTransient<KubernetesService>();
-                services.AddSingleton<DockerService>();
+                services.AddTransient<DockerService>();
             });
 }
